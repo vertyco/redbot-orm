@@ -1,6 +1,6 @@
 # redbot-orm
 
-Database ORM integration for Red-DiscordBot cogs using [Piccolo ORM](https://piccolo-orm.readthedocs.io/en/latest/). Supports both PostgreSQL and SQLite.
+Database ORM integration for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot) cogs using [Piccolo ORM](https://piccolo-orm.readthedocs.io/en/latest/). Supports both PostgreSQL and SQLite.
 
 [![PyPi](https://img.shields.io/pypi/v/redbot-orm)](https://pypi.org/project/redbot-orm/)
 [![Pythons](https://img.shields.io/pypi/pyversions/redbot-orm)](https://pypi.org/project/redbot-orm/)
@@ -14,7 +14,7 @@ Database ORM integration for Red-DiscordBot cogs using [Piccolo ORM](https://pic
 
 ## Features
 
-- Easy database integration for Red-DiscordBot cogs
+- Easy database integration for [Red-DiscordBot](https://github.com/Cog-Creators/Red-DiscordBot) cogs
 - Support for both [PostgreSQL](https://piccolo-orm.readthedocs.io/en/latest/piccolo/engines/postgres_engine.html) and [SQLite](https://piccolo-orm.readthedocs.io/en/latest/piccolo/engines/sqlite_engine.html)
 - Automatic database creation and [migration handling](https://piccolo-orm.readthedocs.io/en/latest/piccolo/migrations/create.html#auto-migrations)
 - Clean separation of databases between different cogs

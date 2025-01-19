@@ -1,0 +1,4 @@
+Red-DiscordBot
+python-dotenv
+twine
+pytest

@@ -8,7 +8,7 @@ version = re.compile(r'__version__\s=\s"(\d+\.\d+.\d)').search(version_raw).grou
 
 
 setup(
-    name="redbot-orm",
+    name="redbot_orm",
     version=version,
     author="Vertyco",
     url="https://github.com/vertyco/redbot-orm",

@@ -83,12 +83,14 @@ async def run_shell(
     def _exe() -> str:
         res = subprocess.run(
             commands,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=sys.stdout if is_shell else subprocess.PIPE,
+            stderr=sys.stdout if is_shell else subprocess.PIPE,
             shell=is_shell,
             cwd=str(get_root(cog_instance)),
             env=get_env(cog_instance),
         )
+        if not res.stdout:
+            return ""
         return res.stdout.decode(encoding="utf-8", errors="ignore").replace("👍", "!")
 
     return await asyncio.to_thread(_exe)

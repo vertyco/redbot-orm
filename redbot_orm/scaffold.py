@@ -84,7 +84,7 @@ _FILES: dict[Path, str] = {
         """
     ).strip()
     + "\n",
-    Path("db") / "__init__.py": "__all__ = ['tables']\n",
+    Path("db") / "__init__.py": "",
     Path("build.py"): textwrap.dedent(
         """
         from __future__ import annotations
@@ -135,7 +135,8 @@ _FILES: dict[Path, str] = {
                 print(f"Error creating migrations: {exc}")
                 print(await diagnose_issues(ROOT, config=CONFIG))
 
-            print(await run_migrations(ROOT, config=CONFIG, trace=True))
+            # Uncomment if you want to run migrations automatically after creating them
+            # print(await run_migrations(ROOT, config=CONFIG, trace=True))
 
 
         if __name__ == "__main__":

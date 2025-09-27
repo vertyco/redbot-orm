@@ -4,13 +4,8 @@ from unittest import TestCase
 
 from piccolo.engine.sqlite import SQLiteEngine
 from piccolo.utils.sync import run_sync
-from redbot_orm.sqlite import (
-    create_migrations,
-    diagnose_issues,
-    register_cog,
-    run_migrations,
-)
 
+from redbot_orm import create_migrations, diagnose_issues, register_cog, run_migrations
 from tests_sqlite.tables import TABLES
 
 cog_instance = Path(__file__).parent
@@ -37,7 +32,12 @@ class TestCrud(TestCase):
 
     def test_create_migrations(self):
         result = run_sync(
-            create_migrations(cog_instance, False, description="Test migration")
+            create_migrations(
+                cog_instance,
+                trace=False,
+                description="Test migration",
+                is_shell=False,
+            )
         )
         self.assertIsInstance(result, str, "Should return a string")
         self.assertIn("🚀 Creating new migration", result)
@@ -53,6 +53,16 @@ class TestCrud(TestCase):
             result, SQLiteEngine, "Should return a SQLiteEngine instance"
         )
         self.assertTrue(db_path.exists(), "Database file not created")
+
+    def test_postgres_options_without_config(self):
+        with self.assertRaises(ValueError):
+            run_sync(
+                register_cog(
+                    cog_instance,
+                    TABLES,
+                    max_size=25,
+                )
+            )
 
     def test_run_migrations(self):
         result = run_sync(run_migrations(cog_instance))

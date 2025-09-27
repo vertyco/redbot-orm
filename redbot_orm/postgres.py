@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import typing as t
 from pathlib import Path
 
 import asyncpg
@@ -16,7 +17,7 @@ log = logging.getLogger("red.orm.postgres")
 async def register_cog(
     cog_instance: commands.Cog | Path,
     tables: list[type[Table]],
-    config: dict,
+    config: dict[str, t.Any],
     *,
     trace: bool = False,
     max_size: int = 20,
@@ -43,6 +44,9 @@ async def register_cog(
     Returns:
         PostgresEngine: The database engine associated with the registered cog.
     """
+    assert isinstance(cog_instance, (commands.Cog, Path)), (
+        "cog_instance must be a Cog instance or a Path to the cog directory"
+    )
     cog_path = get_root(cog_instance)
     if is_unc_path(cog_path):
         raise UNCPathError(
@@ -79,7 +83,7 @@ async def register_cog(
 
 async def run_migrations(
     cog_instance: commands.Cog | Path,
-    config: dict,
+    config: dict[str, t.Any],
     trace: bool = False,
 ) -> str:
     """Runs database migrations for a given Discord cog.
@@ -102,12 +106,12 @@ async def run_migrations(
     ]
     if trace:
         commands.append("--trace")
-    return await run_shell(cog_instance, commands, False)
+    return await run_shell(cog_instance, commands, False, temp_config)
 
 
 async def reverse_migration(
     cog_instance: commands.Cog | Path,
-    config: dict,
+    config: dict[str, t.Any],
     timestamp: str,
     trace: bool = False,
 ) -> str:
@@ -133,14 +137,16 @@ async def reverse_migration(
     ]
     if trace:
         commands.append("--trace")
-    return await run_shell(cog_instance, commands, False)
+    return await run_shell(cog_instance, commands, False, temp_config)
 
 
 async def create_migrations(
     cog_instance: commands.Cog | Path,
-    config: dict,
+    config: dict[str, t.Any],
     trace: bool = False,
-    description: str = None,
+    description: str | None = None,
+    *,
+    is_shell: bool = True,
 ) -> str:
     """Creates new database migrations for the cog
 
@@ -150,7 +156,8 @@ async def create_migrations(
         cog_instance (commands.Cog | Path): The instance of the cog for which to create migrations.
         config (dict): Configuration dictionary containing database connection details.
         trace (bool, optional): Whether to enable tracing for migrations. Defaults to False.
-        description (str, optional): Description of the migration. Defaults to None.
+        description (str | None, optional): Description of the migration. Defaults to None.
+        is_shell (bool, optional): Whether to stream output directly to the shell. Defaults to True.
 
     Returns:
         str: The result of the migration creation process, including any output messages.
@@ -168,10 +175,13 @@ async def create_migrations(
         commands.append("--trace")
     if description is not None:
         commands.append(f"--desc={description}")
-    return await run_shell(cog_instance, commands, True)
+    return await run_shell(cog_instance, commands, is_shell, temp_config)
 
 
-async def diagnose_issues(cog_instance: commands.Cog | Path, config: dict) -> str:
+async def diagnose_issues(
+    cog_instance: commands.Cog | Path,
+    config: dict[str, t.Any],
+) -> str:
     """Diagnoses potential issues with the database setup for a given Discord cog.
 
     Args:
@@ -188,18 +198,20 @@ async def diagnose_issues(cog_instance: commands.Cog | Path, config: dict) -> st
         cog_instance,
         [str(piccolo_path), "--diagnose"],
         False,
+        temp_config,
     )
     check = await run_shell(
         cog_instance,
         [str(piccolo_path), "migrations", "check"],
         False,
+        temp_config,
     )
     return f"{diagnoses}\n{check}"
 
 
 async def ensure_database_exists(
     cog_instance: commands.Cog | Path,
-    config: dict,
+    config: dict[str, t.Any],
 ) -> bool:
     """Create a database for the cog if it doesn't exist.
 
@@ -210,12 +222,15 @@ async def ensure_database_exists(
     Returns:
         bool: True if a new database was created
     """
-    conn = await asyncpg.connect(**config, timeout=10)
+    tmp_config = config.copy()
+    tmp_config["timeout"] = 10
+    conn = await asyncpg.connect(**tmp_config)
     database_name = db_name(cog_instance)
     try:
         databases = await conn.fetch("SELECT datname FROM pg_database;")
         if database_name not in [db["datname"] for db in databases]:
-            await conn.execute(f"CREATE DATABASE {database_name};")
+            escaped_name = '"' + database_name.replace('"', '""') + '"'
+            await conn.execute(f"CREATE DATABASE {escaped_name};")
             return True
     finally:
         await conn.close()

@@ -2,3 +2,4 @@ Red-DiscordBot
 python-dotenv
 twine
 pytest
+pytest-cov

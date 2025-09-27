@@ -1,10 +1,18 @@
-class ConnectionTimeoutError(Exception):
-    message: str
+class BaseORMError(Exception):
+    """Base class for all ORM-related errors."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)
 
 
-class UNCPathError(Exception):
-    message: str
+class ConnectionTimeoutError(BaseORMError):
+    pass
 
 
-class DirectoryError(Exception):
-    message: str
+class UNCPathError(BaseORMError):
+    pass
+
+
+class DirectoryError(BaseORMError):
+    pass

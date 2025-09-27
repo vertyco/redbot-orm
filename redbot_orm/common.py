@@ -3,6 +3,7 @@ import inspect
 import os
 import subprocess
 import sys
+import typing as t
 from pathlib import Path
 
 from discord.ext import commands
@@ -51,7 +52,10 @@ def find_piccolo_executable() -> Path:
     raise FileNotFoundError("Piccolo package not found!")
 
 
-def get_env(cog_instance: commands.Cog | Path, postgres_config: dict = None) -> dict:
+def get_env(
+    cog_instance: commands.Cog | Path,
+    postgres_config: dict[str, t.Any] | None = None,
+) -> dict[str, t.Any]:
     """Create mock environment for subprocess"""
     env = os.environ.copy()
     if "PICCOLO_CONF" not in env:
@@ -77,6 +81,7 @@ async def run_shell(
     cog_instance: commands.Cog | Path,
     commands: list[str],
     is_shell: bool,
+    postgres_config: dict[str, t.Any] | None = None,
 ) -> str:
     """Run a shell command in a separate thread"""
 
@@ -87,7 +92,7 @@ async def run_shell(
             stderr=sys.stdout if is_shell else subprocess.PIPE,
             shell=is_shell,
             cwd=str(get_root(cog_instance)),
-            env=get_env(cog_instance),
+            env=get_env(cog_instance, postgres_config),
         )
         if not res.stdout:
             return ""

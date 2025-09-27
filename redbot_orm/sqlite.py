@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 from discord.ext import commands
@@ -35,6 +36,9 @@ async def register_cog(
     Returns:
         SQLiteEngine: The database engine associated with the registered cog.
     """
+    assert isinstance(cog_instance, (commands.Cog, Path)), (
+        "cog_instance must be a Cog instance or a Path to the cog directory"
+    )
     if isinstance(cog_instance, commands.Cog):
         save_path = cog_data_path(cog_instance)
     elif cog_instance.is_dir():
@@ -50,12 +54,14 @@ async def register_cog(
         )
     if not save_path.is_dir():
         raise DirectoryError(f"Cog files are not in a valid directory: {save_path}")
+    if not os.access(save_path, os.R_OK | os.W_OK):
+        raise DirectoryError(f"Cannot read/write to the cog directory: {save_path}")
 
     if not skip_migrations:
         log.info("Running migrations, if any")
         result = await run_migrations(cog_instance, trace)
         if "No migrations need to be run" in result:
-            log.info("No migrations needed!")
+            log.info("No migrations needed ✓")
         else:
             log.info(f"Migration result...\n{result}")
             if "Traceback" in result:
@@ -123,7 +129,9 @@ async def reverse_migration(
 async def create_migrations(
     cog_instance: commands.Cog | Path,
     trace: bool = False,
-    description: str = None,
+    description: str | None = None,
+    *,
+    is_shell: bool = True,
 ) -> str:
     """Creates new database migrations for the cog
 
@@ -131,7 +139,8 @@ async def create_migrations(
 
     Args:
         cog_instance (commands.Cog | Path): The instance of the cog to create migrations for.
-        name (str): The name of the migration to create.
+        description (str | None, optional): Description of the migration. Defaults to None.
+        is_shell (bool, optional): Whether to stream output directly to the shell. Defaults to True.
 
     Returns:
         str: The result of the migration process, including any output messages.
@@ -147,7 +156,7 @@ async def create_migrations(
         commands.append("--trace")
     if description is not None:
         commands.append(f"--desc={description}")
-    return await run_shell(cog_instance, commands, True)
+    return await run_shell(cog_instance, commands, is_shell)
 
 
 async def diagnose_issues(cog_instance: commands.Cog | Path) -> str:

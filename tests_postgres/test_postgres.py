@@ -5,17 +5,19 @@ from unittest import TestCase
 from dotenv import load_dotenv
 from piccolo.engine.postgres import PostgresEngine
 from piccolo.utils.sync import run_sync
-from redbot_orm.postgres import (
-    acquire_db_engine,
+
+from redbot_orm import (
     create_migrations,
-    db_name,
     diagnose_issues,
-    ensure_database_exists,
     register_cog,
     reverse_migration,
     run_migrations,
 )
-
+from redbot_orm.postgres import (
+    acquire_db_engine,
+    db_name,
+    ensure_database_exists,
+)
 from tests_postgres.tables import TABLES
 
 load_dotenv()
@@ -60,9 +62,13 @@ class TestPostgres(TestCase):
         self.assertTrue(created, "Should return True if database was created")
 
     def test_create_migrations(self):
+        run_sync(ensure_database_exists(cog_instance, get_connection_info()))
         result = run_sync(
             create_migrations(
-                cog_instance, get_connection_info(), description="Test migration"
+                cog_instance,
+                config=get_connection_info(),
+                description="Test migration",
+                is_shell=False,
             )
         )
         self.assertIsInstance(result, str, "Should return a string")
@@ -74,26 +80,46 @@ class TestPostgres(TestCase):
         self.assertEqual(len(migration_files), 1, "Migration file not created")
 
     def test_register_cog(self):
-        cog_engine = run_sync(register_cog(cog_instance, TABLES, get_connection_info()))
+        cog_engine = run_sync(
+            register_cog(
+                cog_instance,
+                TABLES,
+                config=get_connection_info(),
+                max_size=5,
+                min_size=1,
+            )
+        )
         self.assertIsInstance(
             cog_engine, PostgresEngine, "Should return a PostgresEngine instance"
         )
 
     def test_make_migrations(self):
-        res = run_sync(create_migrations(cog_instance, get_connection_info()))
+        run_sync(ensure_database_exists(cog_instance, get_connection_info()))
+        res = run_sync(
+            create_migrations(
+                cog_instance,
+                config=get_connection_info(),
+                is_shell=False,
+            )
+        )
         self.assertIsInstance(res, str, "Should return a string")
+        self.assertIn("🚀 Creating new migration", res)
 
     def test_run_migrations(self):
-        res = run_sync(run_migrations(cog_instance, get_connection_info()))
+        res = run_sync(run_migrations(cog_instance, config=get_connection_info()))
         self.assertIsInstance(res, str, "Should return a string")
 
     def test_diagnose_issues(self):
-        res = run_sync(diagnose_issues(cog_instance, get_connection_info()))
+        res = run_sync(diagnose_issues(cog_instance, config=get_connection_info()))
         self.assertIsInstance(res, str, "Should return a string")
 
     def test_reverse_migration(self):
         res = run_sync(
-            reverse_migration(cog_instance, get_connection_info(), "20230101")
+            reverse_migration(
+                cog_instance,
+                config=get_connection_info(),
+                timestamp="20230101",
+            )
         )
         self.assertIsInstance(res, str, "Should return a string")
 

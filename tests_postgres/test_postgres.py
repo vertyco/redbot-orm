@@ -71,7 +71,7 @@ class TestPostgres(TestCase):
             )
         )
         self.assertIsInstance(result, str, "Should return a string")
-        self.assertIn("🚀 Creating new migration", result)
+        self.assertIn("[LAUNCH] Creating new migration", result)
         # Now make sure the migration file exists
         migration_files = [
             i for i in migration_dir.iterdir() if i.stem.startswith("tests_postgres")
@@ -102,7 +102,7 @@ class TestPostgres(TestCase):
             )
         )
         self.assertIsInstance(res, str, "Should return a string")
-        self.assertIn("🚀 Creating new migration", res)
+        self.assertIn("[LAUNCH] Creating new migration", res)
 
     def test_run_migrations(self):
         res = run_sync(run_migrations(cog_instance, config=get_connection_info()))

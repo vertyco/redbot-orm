@@ -56,10 +56,14 @@ async def register_cog(
     if not cog_path.is_dir():
         raise DirectoryError(f"Cog files are not in a valid directory: {cog_path}")
 
+    # Check for piccolo_app.py in either db/ subfolder or root (for tests)
     db_folder = cog_path / "db"
-    if not (db_folder / "piccolo_app.py").exists():
+    has_piccolo_app = (db_folder / "piccolo_app.py").exists() or (
+        cog_path / "piccolo_app.py"
+    ).exists()
+    if not has_piccolo_app:
         raise DirectoryError(
-            f"Missing db/piccolo_app.py in {cog_path} - run `redbot-orm scaffold` first"
+            f"Missing piccolo_app.py in {cog_path} - run `redbot-orm scaffold` first"
         )
 
     if await ensure_database_exists(cog_instance, config):

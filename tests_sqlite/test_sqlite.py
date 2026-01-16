@@ -40,7 +40,7 @@ class TestCrud(TestCase):
             )
         )
         self.assertIsInstance(result, str, "Should return a string")
-        self.assertIn("🚀 Creating new migration", result)
+        self.assertIn("[LAUNCH] Creating new migration", result)
         # Now make sure the migration file exists
         migration_files = [
             i for i in migration_dir.iterdir() if i.stem.startswith("tests_sqlite")

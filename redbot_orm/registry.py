@@ -16,6 +16,13 @@ Tables = list[type[Table]]
 Engine = PostgresEngine | SQLiteEngine
 
 
+def _normalize_config(config: Config | None) -> Config | None:
+    """Normalize empty config dicts to None for SQLite fallback"""
+    if config is not None and len(config) == 0:
+        return None
+    return config
+
+
 async def register_cog(
     cog_instance: commands.Cog | Path,
     tables: Tables,
@@ -27,8 +34,7 @@ async def register_cog(
     min_size: int = 1,
     extensions: tuple[str, ...] = ("uuid-ossp",),
 ) -> Engine:
-    if config is not None and len(config) == 0:
-        config = None
+    config = _normalize_config(config)
     if config is None and (
         max_size != 20 or min_size != 1 or extensions != ("uuid-ossp",)
     ):
@@ -58,8 +64,7 @@ async def run_migrations(
     config: Config | None = None,
     trace: bool = False,
 ) -> str:
-    if config is not None and len(config) == 0:
-        config = None
+    config = _normalize_config(config)
     if config is not None:
         return await postgres_impl.run_migrations(
             cog_instance,
@@ -79,8 +84,7 @@ async def reverse_migration(
     config: Config | None = None,
     trace: bool = False,
 ) -> str:
-    if config is not None and len(config) == 0:
-        config = None
+    config = _normalize_config(config)
     if config is not None:
         return await postgres_impl.reverse_migration(
             cog_instance,
@@ -103,8 +107,7 @@ async def create_migrations(
     description: str | None = None,
     is_shell: bool = True,
 ) -> str:
-    if config is not None and len(config) == 0:
-        config = None
+    config = _normalize_config(config)
     if config is not None:
         return await postgres_impl.create_migrations(
             cog_instance,
@@ -126,8 +129,7 @@ async def diagnose_issues(
     *,
     config: Config | None = None,
 ) -> str:
-    if config is not None and len(config) == 0:
-        config = None
+    config = _normalize_config(config)
     if config is not None:
         return await postgres_impl.diagnose_issues(
             cog_instance,

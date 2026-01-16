@@ -39,17 +39,16 @@ def get_connection_info():
 
 class TestPostgres(TestCase):
     def setUp(self):
-        engine = run_sync(acquire_db_engine(get_connection_info(), ("uuid-ossp",)))
+        self.engine = run_sync(acquire_db_engine(get_connection_info(), ("uuid-ossp",)))
         run_sync(
-            engine._run_in_new_connection(
+            self.engine._run_in_new_connection(
                 "DROP DATABASE IF EXISTS tests_postgres WITH (FORCE)"
             )
         )
 
     def tearDown(self):
-        engine = run_sync(acquire_db_engine(get_connection_info(), ("uuid-ossp",)))
         run_sync(
-            engine._run_in_new_connection(
+            self.engine._run_in_new_connection(
                 "DROP DATABASE IF EXISTS tests_postgres WITH (FORCE)"
             )
         )

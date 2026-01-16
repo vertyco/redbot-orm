@@ -19,7 +19,7 @@ def get_root(cog_instance: commands.Cog | Path) -> Path:
 
 def is_unc_path(path: Path) -> bool:
     """Check if path is a UNC path"""
-    return path.is_absolute() and str(path).startswith(r"\\\\")
+    return path.is_absolute() and str(path).startswith("\\\\")
 
 
 def is_windows() -> bool:
@@ -77,6 +77,21 @@ def get_env(
     return env
 
 
+def _sanitize_output(text: str) -> str:
+    """Remove emojis that can cause encoding issues on some terminals"""
+    replacements = {
+        "👍": "[OK]",
+        "🚀": "[LAUNCH]",
+        "✅": "[DONE]",
+        "❌": "[FAIL]",
+        "⚠️": "[WARN]",
+        "🔧": "[FIX]",
+    }
+    for emoji, replacement in replacements.items():
+        text = text.replace(emoji, replacement)
+    return text
+
+
 async def run_shell(
     cog_instance: commands.Cog | Path,
     commands: list[str],
@@ -86,8 +101,10 @@ async def run_shell(
     """Run a shell command in a separate thread"""
 
     def _exe() -> str:
+        # When shell=True, convert list to string for cross-platform consistency
+        cmd: list[str] | str = " ".join(commands) if is_shell else commands
         res = subprocess.run(
-            commands,
+            cmd,
             stdout=sys.stdout if is_shell else subprocess.PIPE,
             stderr=sys.stdout if is_shell else subprocess.PIPE,
             shell=is_shell,
@@ -96,6 +113,6 @@ async def run_shell(
         )
         if not res.stdout:
             return ""
-        return res.stdout.decode(encoding="utf-8", errors="ignore").replace("👍", "!")
+        return _sanitize_output(res.stdout.decode(encoding="utf-8", errors="ignore"))
 
     return await asyncio.to_thread(_exe)

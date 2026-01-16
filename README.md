@@ -16,6 +16,18 @@ Database ORM integration for [Red-DiscordBot](https://github.com/Cog-Creators/Re
 ![black](https://img.shields.io/badge/style-black-000000?link=https://github.com/psf/black)
 ![license](https://img.shields.io/github/license/Vertyco/redbot-orm)
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage Examples](#usage-examples)
+- [Configuration](#configuration)
+- [Development and Migrations](#development-and-migrations)
+- [API Reference](#api-reference)
+- [Troubleshooting](#troubleshooting)
+- [Running Tests](#running-tests-optional)
+
 ## Features
 
 - One-line database registration tailored for Red-DiscordBot cogs
@@ -25,11 +37,77 @@ Database ORM integration for [Red-DiscordBot](https://github.com/Cog-Creators/Re
 - Guided scaffolding command to bootstrap Piccolo project files
 
 ## Installation
+
+```bash
+pip install redbot-orm
+```
+
+## Quick Start
+
+1. **Scaffold your cog** — run inside your cog folder to generate the Piccolo project structure:
+
+   ```bash
+   python -m redbot_orm scaffold .
+   # or equivalently:
+   redbot-orm scaffold .
+   ```
+
+   This creates the `db/` folder, Piccolo config files, migrations directory, and a starter `build.py` script. The generated `piccolo_conf.py` automatically switches between SQLite and Postgres depending on which environment variables are present.
+
+2. **Define your tables** in `db/tables.py`:
+
+   ```python
+   from piccolo.columns import BigInt, Text, UUID
+   from piccolo.table import Table
+
+   class MyTable(Table):
+       id = UUID(primary_key=True)
+       guild_id = BigInt(unique=True)
+       name = Text()
+   ```
+
+3. **Register in your cog's `cog_load`** to automatically create the database, bind tables, and run migrations:
+
+   ```python
+   from redbot_orm import register_cog
+   from .db.tables import MyTable
+
+   async def cog_load(self) -> None:
+       self.db = await register_cog(self, [MyTable])
+   ```
+
+4. **Create migrations** when you change your tables by running `build.py` or using the helper functions.
+
+**Expected cog layout:**
+
+```
+my_cog/
+├── db/
+│   ├── __init__.py
+│   ├── migrations/
+│   ├── piccolo_app.py
+│   ├── piccolo_conf.py
+│   └── tables.py
+├── __init__.py
+├── cog.py
+└── build.py
+```
+
+If you're targeting Postgres, create a `.env` file in your cog's root with the required `POSTGRES_*` variables. Be sure to add `.env` to your `.gitignore` so credentials never end up in version control.
+
+## Usage Examples
+
+### SQLite Example
+
+SQLite is the simplest option, no external database server required. Data is stored in the cog's data directory.
+
 ```python
 from redbot.core import commands
 from redbot.core.bot import Red
 from piccolo.engine.sqlite import SQLiteEngine
+
 from redbot_orm import register_cog
+
 from .db.tables import MyTable
 
 
@@ -39,60 +117,24 @@ class SQLiteCog(commands.Cog):
         self.db: SQLiteEngine | None = None
 
     async def cog_load(self) -> None:
-        self.db = await register_cog(
-            self,
-            [MyTable],
-            trace=False,
-            skip_migrations=False,
-        )
+        self.db = await register_cog(self, [MyTable])
 
     async def cog_unload(self) -> None:
-        # SQLite uses file-based storage and no connection pools.
+        # SQLite is file-based; no connection pool to close.
         pass
 ```
 
-Example cog layout:
-
-```
-cog-folder/
-├── db/
-│   ├── migrations/
-│   ├── piccolo_conf.py
-│   ├── piccolo_app.py
-│   └── tables.py
-├── __init__.py
-└── cog.py
-```
-
-Generate the Piccolo scaffolding with the built-in helper:
-
-```powershell
-python -m redbot_orm scaffold .
-```
-
-This command (or the equivalent `redbot-orm scaffold .`) creates the `db` folder, Piccolo config files, migrations directory, and a starter `build.py` script in the target directory (use `.` for the current cog root). The generated `piccolo_conf.py` automatically switches between SQLite and Postgres depending on which environment variables are present, so you can target either backend without editing the file.
-
-## Quick Start
-
-1. Install the package (`pip install redbot-orm`).
-2. Run `python -m redbot_orm scaffold .` inside your cog folder to generate the Piccolo project structure.
-3. Define your Piccolo `Table` classes in `db/tables.py`.
-4. Call `register_cog` inside your cog's `cog_load` method to automatically create the database, bind tables, and run migrations.
-5. Use the helper utilities to create or run migrations from scripts or CI.
-
-The generated Piccolo configuration already reads from environment variables, so in most cases no manual edits are required.
-
-If you're targeting Postgres, create a `.env` file in your cog's root with the required `POSTGRES_*` variables. Be sure to add `.env` to your cog's `.gitignore` so credentials never end up in version control.
-
-## Usage Examples
-
 ### PostgreSQL Example
+
+PostgreSQL offers better performance for high-traffic bots and advanced features like JSON columns and full-text search.
 
 ```python
 from redbot.core import commands
 from redbot.core.bot import Red
 from piccolo.engine.postgres import PostgresEngine
+
 from redbot_orm import register_cog
+
 from .db.tables import MyTable
 
 
@@ -102,15 +144,15 @@ class PostgresCog(commands.Cog):
         self.db: PostgresEngine | None = None
 
     async def cog_load(self) -> None:
-        # Option A: fetch a shared Red API token (recommended for hosted bots)
+        # Option A: fetch credentials from Red's shared API tokens (recommended)
         config = await self.bot.get_shared_api_tokens("postgres")
 
-        # Option B: load from environment variables / .env file
+        # Option B: fallback to hardcoded defaults for local development
         if not config:
             config = {
                 "database": "postgres",
                 "host": "localhost",
-                "port": "5432",
+                "port": 5432,
                 "user": "postgres",
                 "password": "postgres",
             }
@@ -119,8 +161,6 @@ class PostgresCog(commands.Cog):
             self,
             [MyTable],
             config=config,
-            trace=False,
-            skip_migrations=False,
             max_size=10,
             min_size=1,
             extensions=("uuid-ossp",),
@@ -128,220 +168,143 @@ class PostgresCog(commands.Cog):
 
     async def cog_unload(self) -> None:
         if self.db:
-            self.db.pool.terminate()
-```
-
-### SQLite Example
-
-```python
-from redbot.core import commands
-from redbot.core.bot import Red
-from piccolo.engine.sqlite import SQLiteEngine
-from redbot_orm import register_cog
-from .db.tables import MyTable
-
-class SQLiteCog(commands.Cog):
-    def __init__(self, bot: Red) -> None:
-        self.bot = bot
-        self.db: SQLiteEngine | None = None
-
-    async def cog_load(self) -> None:
-        self.db = await register_cog(
-            self,
-            [MyTable],
-            trace=False,
-            skip_migrations=False,
-        )
-
-    async def cog_unload(self) -> None:
-        # SQLite uses file-based storage and no connection pools.
-        pass
-
+            await self.db.close_connection_pool()
 ```
 
 ### Migration Helpers
 
-The unified API also exposes helper functions which automatically choose the correct backend based on whether a Postgres `config` is supplied:
+The unified API exposes helper functions that automatically choose the correct backend based on whether a Postgres `config` is supplied:
 
-- `create_migrations(cog_or_path, *, config=None, trace=False, description=None, is_shell=True)`
-- `run_migrations(cog_or_path, *, config=None, trace=False)`
-- `reverse_migration(cog_or_path, *, timestamp, config=None, trace=False)`
-- `diagnose_issues(cog_or_path, *, config=None)`
+| Function | Purpose |
+| --- | --- |
+| `create_migrations()` | Generates an auto migration |
+| `run_migrations()` | Applies all pending forward migrations |
+| `reverse_migration()` | Rolls back to a specific timestamp |
+| `diagnose_issues()` | Runs Piccolo diagnostics |
 
-Pass your Postgres connection dictionary via `config` to target Postgres; omit it to operate on SQLite data stored in the cog's data folder.
+```python
+from redbot_orm import create_migrations, run_migrations, diagnose_issues
+
+# SQLite (no config)
+await run_migrations(cog_instance)
+
+# PostgreSQL (with config)
+await run_migrations(cog_instance, config=postgres_config)
+```
 
 ## Configuration
 
-### PostgreSQL Configuration
-Required shared API tokens for PostgreSQL:
+### PostgreSQL Credentials
 
-```json
-{
-    "database": "postgres",
-    "host": "127.0.0.1",
-    "port": "5432",
+You can store Postgres credentials in Red's shared API tokens:
+
+```bash
+[p]set api postgres database,mydb host,localhost port,5432 user,postgres password,secret
+```
+
+Or as a dictionary in your code:
+
+```python
+config = {
+    "database": "mydb",
+    "host": "localhost",
+    "port": 5432,  # Can be int or str
     "user": "postgres",
-    "password": "postgres"
+    "password": "secret",
 }
 ```
 
-### Piccolo Configuration Files
+### Environment Variables
 
-#### piccolo_conf.py
-```python
-import os
-from piccolo.conf.apps import AppRegistry
-from piccolo.engine.postgres import PostgresEngine
-
-DB = PostgresEngine(
-    config={
-        "database": os.environ.get("POSTGRES_DATABASE"),
-        "user": os.environ.get("POSTGRES_USER"),
-        "password": os.environ.get("POSTGRES_PASSWORD"),
-        "host": os.environ.get("POSTGRES_HOST"),
-        "port": os.environ.get("POSTGRES_PORT"),
-    }
-)
-
-APP_REGISTRY = AppRegistry(apps=["db.piccolo_app"])
-```
-
-#### piccolo_app.py
-```python
-import os
-from piccolo.conf.apps import AppConfig, table_finder
-
-CURRENT_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-
-APP_CONFIG = AppConfig(
-    app_name=os.getenv("APP_NAME"),
-    table_classes=table_finder(["db.tables"]),
-    migrations_folder_path=os.path.join(CURRENT_DIRECTORY, "migrations"),
-)
-```
-
-## Development and Migrations
-
-For local development, create an `.env` file in your cog's root:
+For local development with the `build.py` script, create an `.env` file:
 
 ```env
-# Only for PostgreSQL
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
-POSTGRES_DATABASE=postgres
+POSTGRES_DATABASE=mydb
 ```
 
-Keep this file alongside your cog during development, but list `.env` in your `.gitignore` (and any repo-specific ignore files) to avoid committing secrets.
+> **Warning:** Add `.env` to your `.gitignore` to avoid committing credentials.
 
-Create a `build.py` for managing migrations:
+## Development and Migrations
 
-```python
-import asyncio
-import os
-from pathlib import Path
+The scaffolded `build.py` script provides an interactive way to create migrations during development:
 
-from dotenv import load_dotenv
-
-from redbot_orm import create_migrations, diagnose_issues, run_migrations
-
-
-load_dotenv()
-
-config = {
-    "user": os.environ.get("POSTGRES_USER"),
-    "password": os.environ.get("POSTGRES_PASSWORD"),
-    "database": os.environ.get("POSTGRES_DATABASE"),
-    "host": os.environ.get("POSTGRES_HOST"),
-    "port": os.environ.get("POSTGRES_PORT"),
-}
-
-root = Path(__file__).parent
-
-
-async def main() -> None:
-    description = input("Enter a description for the migration: ")
-    try:
-        result = await create_migrations(
-            root,
-            config=config,
-            trace=True,
-            description=description,
-            is_shell=True,
-        )
-        if "The command failed." in result:
-            raise Exception("Migration creation failed")
-        print(result)
-    except Exception as e:
-        print(f"Error creating migrations: {e}")
-        print(await diagnose_issues(root, config=config))
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+```bash
+python build.py
+# Enter a description for the migration: added user preferences table
 ```
+
+This runs `create_migrations()` under the hood. For SQLite, leave the `CONFIG` variable as `None`; for Postgres, populate it from environment variables.
 
 ## API Reference
 
 ### `register_cog`
 
 ```python
-await register_cog(
+async def register_cog(
     cog_or_path,
     tables,
     *,
-    config: dict[str, object] | None = None,
+    config: dict[str, Any] | None = None,
     trace: bool = False,
     skip_migrations: bool = False,
     max_size: int = 20,
     min_size: int = 1,
-    extensions: tuple[str, ...] = ("uuid-ossp",),
-)
+    extensions: Sequence[str] = ("uuid-ossp",),
+) -> PostgresEngine | SQLiteEngine
 ```
 
-- `cog_or_path`: the Cog instance (`self`) or a `Path` to the cog directory.
-- `tables`: iterable of Piccolo `Table` classes to bind to the database engine.
-- `config`: Postgres connection details. Leave `None` to use SQLite.
-- `trace`: forwards the `--trace` flag to Piccolo migration commands.
-- `skip_migrations`: if `True`, migrations are not executed automatically.
-- `max_size` / `min_size`: Postgres connection pool sizing (ignored for SQLite).
-- `extensions`: Postgres extensions to enable (e.g. `uuid-ossp`).
-
-Returns a fully initialised `PostgresEngine` or `SQLiteEngine` with all provided tables bound via Piccolo.
-
-### Migration Helpers
-
-All helper functions accept the same `config` switch to choose Postgres vs SQLite:
-
-| Function | Purpose |
+| Parameter | Description |
 | --- | --- |
-| `create_migrations(cog_or_path, *, config=None, trace=False, description=None, is_shell=True)` | Generates an auto migration (`piccolo migrations new --auto`). Set `is_shell=False` for CI/tests to capture output instead of streaming to stdout. |
-| `run_migrations(cog_or_path, *, config=None, trace=False)` | Applies all forward migrations (`piccolo migrations forwards`). |
-| `reverse_migration(cog_or_path, *, timestamp, config=None, trace=False)` | Rolls back migrations to the given timestamp (`piccolo migrations backwards`). |
-| `diagnose_issues(cog_or_path, *, config=None)` | Runs Piccolo diagnostics (`piccolo --diagnose` + `migrations check`). |
+| `cog_or_path` | The cog instance (`self`) or a `Path` to the cog directory |
+| `tables` | List of Piccolo `Table` classes to bind to the engine |
+| `config` | Postgres connection dict; omit or pass `None` for SQLite |
+| `trace` | Enable `--trace` flag for migration commands |
+| `skip_migrations` | Skip automatic migration execution |
+| `max_size` / `min_size` | Postgres connection pool sizing (ignored for SQLite) |
+| `extensions` | Postgres extensions to enable, e.g. `("uuid-ossp",)` |
+
+**Returns:** A fully initialized `PostgresEngine` or `SQLiteEngine` with all tables bound.
+
+### Migration Functions
+
+| Function | Signature |
+| --- | --- |
+| `create_migrations` | `(cog_or_path, *, config=None, trace=False, description=None, is_shell=True) -> str` |
+| `run_migrations` | `(cog_or_path, *, config=None, trace=False) -> str` |
+| `reverse_migration` | `(cog_or_path, *, timestamp, config=None, trace=False) -> str` |
+| `diagnose_issues` | `(cog_or_path, *, config=None) -> str` |
+
+All functions accept `config` to switch between Postgres and SQLite. Set `is_shell=False` in CI/tests to capture output instead of streaming to stdout.
 
 ## Troubleshooting
 
-- **`ValueError: Postgres options can only be used when a config is provided.`** → Provide Postgres credentials via `config`, or omit Postgres-only kwargs when using SQLite.
-- **`FileNotFoundError: Piccolo package not found!`** → Ensure the Piccolo CLI is installed in the active environment (`pip install piccolo`).
-- **Migration output contains tracebacks** → Re-run with `trace=True` and call `diagnose_issues` for more detailed guidance.
-- **Tables not appearing in the database** → Confirm each table class is (a) imported in `db/tables.py`, (b) returned by `table_finder` in `piccolo_app.py`, and (c) passed to `register_cog`.
+| Error | Solution |
+| --- | --- |
+| `ValueError: Postgres options can only be used when a config is provided.` | Provide Postgres credentials via `config`, or remove Postgres-only kwargs (`max_size`, `min_size`, `extensions`) when using SQLite. |
+| `FileNotFoundError: Piccolo package not found!` | Install Piccolo in your environment: `pip install piccolo` |
+| `DirectoryError: Missing db/piccolo_app.py` | Run `redbot-orm scaffold .` in your cog directory first |
+| Migration tracebacks | Re-run with `trace=True` and call `diagnose_issues()` for guidance |
+| Tables not appearing | Ensure tables are: (1) defined in `db/tables.py`, (2) listed in `table_finder()` in `piccolo_app.py`, and (3) passed to `register_cog()` |
 
 ## Running Tests (Optional)
 
-Integration tests for both backends are included. With your virtual environment activated run:
+Integration tests for both backends are included:
 
-```powershell
-python -m pytest
+```bash
+# Activate your virtual environment first
+pytest                  # Run all tests
+pytest tests_sqlite/    # SQLite only (no setup required)
+pytest tests_postgres/  # Postgres only (requires POSTGRES_* env vars)
 ```
-
-The SQLite tests require no additional setup. The Postgres tests expect a database accessible through the usual `POSTGRES_*` environment variables.
 
 ## Additional Notes
 
-- Each cog gets its own database named after the cog's folder name (lowercase).
-- SQLite databases live inside the cog's data directory, managed by Red's `cog_data_path` helper.
-- Postgres databases are created automatically when missing; ensure your user has `CREATE DATABASE` privileges.
-- Not every Piccolo column type behaves the same across SQLite and Postgres—prefer types supported by both backends (like `UUID`, `Text`, `BigInt`, `Timestamptz`) or gate backend-specific columns behind conditional migrations.
-- When using Postgres, remember to close the connection pool in `cog_unload` (as shown in the example).
+- **Database naming:** Each cog gets its own database named after the cog's folder (lowercase).
+- **SQLite location:** Databases are stored in the cog's data directory via Red's `cog_data_path`.
+- **Postgres auto-creation:** Databases are created automatically; ensure your user has `CREATE DATABASE` privileges.
+- **Cross-backend compatibility:** Prefer column types supported by both backends (`UUID`, `Text`, `BigInt`, `Timestamptz`). Gate backend-specific columns behind conditional logic if needed.
+- **Connection cleanup:** Always close the Postgres connection pool in `cog_unload` using `await self.db.close_connection_pool()`.

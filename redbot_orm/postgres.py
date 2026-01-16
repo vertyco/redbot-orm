@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import typing as t
+from collections.abc import Sequence
 from pathlib import Path
 
 import asyncpg
@@ -23,7 +24,7 @@ async def register_cog(
     max_size: int = 20,
     min_size: int = 1,
     skip_migrations: bool = False,
-    extensions: list[str] = ("uuid-ossp",),
+    extensions: Sequence[str] = ("uuid-ossp",),
 ) -> PostgresEngine:
     """Registers a Discord cog with a database connection and runs migrations.
 
@@ -35,7 +36,7 @@ async def register_cog(
         max_size (int, optional): Maximum size of the database connection pool. Defaults to 20.
         min_size (int, optional): Minimum size of the database connection pool. Defaults to 1.
         skip_migrations (bool, optional): Whether to skip running migrations. Defaults to False.
-        extensions (list[str], optional): List of Postgres extensions to enable. Defaults to ("uuid-ossp",).
+        extensions (Sequence[str], optional): Postgres extensions to enable. Defaults to ("uuid-ossp",).
 
     Raises:
         UNCPathError: If the cog path is a UNC path, which is not supported.
@@ -54,6 +55,12 @@ async def register_cog(
         )
     if not cog_path.is_dir():
         raise DirectoryError(f"Cog files are not in a valid directory: {cog_path}")
+
+    db_folder = cog_path / "db"
+    if not (db_folder / "piccolo_app.py").exists():
+        raise DirectoryError(
+            f"Missing db/piccolo_app.py in {cog_path} - run `redbot-orm scaffold` first"
+        )
 
     if await ensure_database_exists(cog_instance, config):
         log.info(f"New database created for {cog_path.stem}")
@@ -237,13 +244,13 @@ async def ensure_database_exists(
     return False
 
 
-async def acquire_db_engine(config: dict, extensions: list[str]) -> PostgresEngine:
+async def acquire_db_engine(config: dict, extensions: Sequence[str]) -> PostgresEngine:
     """Acquire a database engine
     The PostgresEngine constructor is blocking and must be run in a separate thread.
 
     Args:
         config (dict): The database connection information
-        extensions (list[str]): The Postgres extensions to enable
+        extensions (Sequence[str]): The Postgres extensions to enable
 
     Returns:
         PostgresEngine: The database engine

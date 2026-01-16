@@ -57,6 +57,13 @@ async def register_cog(
     if not os.access(save_path, os.R_OK | os.W_OK):
         raise DirectoryError(f"Cannot read/write to the cog directory: {save_path}")
 
+    cog_path = get_root(cog_instance)
+    db_folder = cog_path / "db"
+    if not (db_folder / "piccolo_app.py").exists():
+        raise DirectoryError(
+            f"Missing db/piccolo_app.py in {cog_path} - run `redbot-orm scaffold` first"
+        )
+
     if not skip_migrations:
         log.info("Running migrations, if any")
         result = await run_migrations(cog_instance, trace)

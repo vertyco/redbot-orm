@@ -1,3 +1,11 @@
+from .common import (
+    find_piccolo_executable,
+    get_env,
+    get_root,
+    is_unc_path,
+    is_windows,
+    run_shell,
+)
 from .errors import ConnectionTimeoutError, DirectoryError, UNCPathError
 from .registry import (
     create_migrations,
@@ -18,4 +26,10 @@ __all__ = [
     "register_cog",
     "reverse_migration",
     "run_migrations",
+    "find_piccolo_executable",
+    "get_env",
+    "get_root",
+    "is_unc_path",
+    "is_windows",
+    "run_shell",
 ]

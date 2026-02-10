@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import typing as t
 from collections.abc import Sequence
 from pathlib import Path
@@ -56,15 +57,18 @@ async def register_cog(
     if not cog_path.is_dir():
         raise DirectoryError(f"Cog files are not in a valid directory: {cog_path}")
 
-    # Check for piccolo_app.py in either db/ subfolder or root (for tests)
-    db_folder = cog_path / "db"
-    has_piccolo_app = (db_folder / "piccolo_app.py").exists() or (
-        cog_path / "piccolo_app.py"
-    ).exists()
-    if not has_piccolo_app:
-        raise DirectoryError(
-            f"Missing piccolo_app.py in {cog_path} - run `redbot-orm scaffold` first"
-        )
+    # Only validate piccolo_app.py on disk when the user is relying on the
+    # default scaffolded config.  When PICCOLO_CONF is already set the user
+    # manages their own Piccolo configuration (e.g. via an installed package).
+    if "PICCOLO_CONF" not in os.environ:
+        db_folder = cog_path / "db"
+        has_piccolo_app = (db_folder / "piccolo_app.py").exists() or (
+            cog_path / "piccolo_app.py"
+        ).exists()
+        if not has_piccolo_app:
+            raise DirectoryError(
+                f"Missing piccolo_app.py in {cog_path} - run `redbot-orm scaffold` first"
+            )
 
     if await ensure_database_exists(cog_instance, config):
         log.info(f"New database created for {cog_path.stem}")

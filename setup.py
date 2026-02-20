@@ -49,7 +49,7 @@ setup(
         "Topic :: Utilities",
         "Typing :: Typed",
     ],
-    install_requires=["piccolo[all]", "piccolo[orjson]"],
+    install_requires=["piccolo[all]", "piccolo[orjson]", "pydantic>=2.11,<2.12"],
     python_requires=">=3.10",
     project_urls={
         "Homepage": "https://github.com/vertyco/redbot-orm",

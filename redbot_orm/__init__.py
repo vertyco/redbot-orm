@@ -1,7 +1,6 @@
 from .common import (
     find_piccolo_executable,
     get_env,
-    get_piccolo_command,
     get_root,
     is_unc_path,
     is_windows,
@@ -28,7 +27,6 @@ __all__ = [
     "reverse_migration",
     "run_migrations",
     "find_piccolo_executable",
-    "get_piccolo_command",
     "get_env",
     "get_root",
     "is_unc_path",

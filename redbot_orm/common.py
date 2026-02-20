@@ -1,5 +1,4 @@
 import asyncio
-import importlib.util
 import inspect
 import os
 import subprocess
@@ -53,16 +52,6 @@ def find_piccolo_executable() -> Path:
     raise FileNotFoundError("Piccolo package not found!")
 
 
-def get_piccolo_command() -> list[str]:
-    """Get the command prefix used to execute Piccolo CLI commands."""
-    try:
-        return [str(find_piccolo_executable())]
-    except FileNotFoundError:
-        if importlib.util.find_spec("piccolo") is not None:
-            return [sys.executable, "-m", "piccolo.main"]
-        raise
-
-
 def get_env(
     cog_instance: commands.Cog | Path,
     postgres_config: dict[str, t.Any] | None = None,
@@ -73,6 +62,14 @@ def get_env(
         # Dont want to overwrite the user's config
         env["PICCOLO_CONF"] = "db.piccolo_conf"
     env["APP_NAME"] = get_root(cog_instance).stem
+
+    # Include Downloader lib path so subprocesses can import packages installed there
+    lib_path = cog_data_path(raw_name="Downloader") / "lib"
+    if lib_path.exists():
+        existing = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            f"{lib_path}{os.pathsep}{existing}" if existing else str(lib_path)
+        )
     if isinstance(cog_instance, Path):
         env["DB_PATH"] = str(cog_instance / "db.sqlite")
     else:

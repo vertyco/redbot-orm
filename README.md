@@ -34,7 +34,6 @@ Database ORM integration for [Red-DiscordBot](https://github.com/Cog-Creators/Re
 - Automatic database creation, table binding, and Piccolo migrations
 - Unified API for [PostgreSQL](https://piccolo-orm.readthedocs.io/en/latest/piccolo/engines/postgres_engine.html) and [SQLite](https://piccolo-orm.readthedocs.io/en/latest/piccolo/engines/sqlite_engine.html)
 - Safe directory handling and UNC path checks for Windows compatibility
-- Piccolo command resolution with fallback to `python -m piccolo.main` when no CLI script is present
 - Guided scaffolding command to bootstrap Piccolo project files
 
 ## Installation
@@ -281,19 +280,12 @@ async def register_cog(
 
 All functions accept `config` to switch between Postgres and SQLite. Set `is_shell=False` in CI/tests to capture output instead of streaming to stdout.
 
-### Utility Functions
-
-| Function | Purpose |
-| --- | --- |
-| `find_piccolo_executable` | Returns the discovered Piccolo CLI path if a script is available |
-| `get_piccolo_command` | Returns the Piccolo command prefix, using CLI path or falling back to `python -m piccolo.main` |
-
 ## Troubleshooting
 
 | Error | Solution |
 | --- | --- |
 | `ValueError: Postgres options can only be used when a config is provided.` | Provide Postgres credentials via `config`, or remove Postgres-only kwargs (`max_size`, `min_size`, `extensions`) when using SQLite. |
-| `FileNotFoundError: Piccolo package not found!` | Ensure Piccolo is importable in the same Python environment as Red / redbot-orm: `pip install piccolo`. `redbot-orm` first looks for a `piccolo` executable, then falls back to `python -m piccolo.main`. |
+| `FileNotFoundError: Piccolo package not found!` | Install Piccolo in your environment: `pip install piccolo` |
 | `DirectoryError: Missing db/piccolo_app.py` | Run `redbot-orm scaffold .` in your cog directory first |
 | Migration tracebacks | Re-run with `trace=True` and call `diagnose_issues()` for guidance |
 | Tables not appearing | Ensure tables are: (1) defined in `db/tables.py`, (2) listed in `table_finder()` in `piccolo_app.py`, and (3) passed to `register_cog()` |

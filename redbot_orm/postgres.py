@@ -10,7 +10,7 @@ from discord.ext import commands
 from piccolo.engine.postgres import PostgresEngine
 from piccolo.table import Table
 
-from .common import get_piccolo_command, get_root, is_unc_path, run_shell
+from .common import find_piccolo_executable, get_root, is_unc_path, run_shell
 from .errors import ConnectionTimeoutError, DirectoryError, UNCPathError
 
 log = logging.getLogger("red.orm.postgres")
@@ -78,11 +78,13 @@ async def register_cog(
         result = await run_migrations(cog_instance, config, trace)
         if "No migrations need to be run" in result:
             log.info("No migrations needed ✓")
-        else:
+        elif result:
             log.info(f"Migration result...\n{result}")
             if "Traceback" in result:
                 diagnoses = await diagnose_issues(cog_instance, config)
                 log.error(diagnoses + "\nOne or more migrations failed to run!")
+        else:
+            log.warning("No output from migration command, check your configuration and logs if things aren't working")
 
     temp_config = config.copy()
     temp_config["database"] = db_name(cog_instance)
@@ -114,7 +116,7 @@ async def run_migrations(
     temp_config = config.copy()
     temp_config["database"] = db_name(cog_instance)
     commands = [
-        *get_piccolo_command(),
+        str(find_piccolo_executable()),
         "migrations",
         "forwards",
         get_root(cog_instance).stem,
@@ -144,7 +146,7 @@ async def reverse_migration(
     temp_config = config.copy()
     temp_config["database"] = db_name(cog_instance)
     commands = [
-        *get_piccolo_command(),
+        str(find_piccolo_executable()),
         "migrations",
         "backwards",
         get_root(cog_instance).stem,
@@ -180,7 +182,7 @@ async def create_migrations(
     temp_config = config.copy()
     temp_config["database"] = db_name(cog_instance)
     commands = [
-        *get_piccolo_command(),
+        str(find_piccolo_executable()),
         "migrations",
         "new",
         get_root(cog_instance).stem,
@@ -206,17 +208,18 @@ async def diagnose_issues(
     Returns:
         str: The result of the diagnosis process, including any output messages.
     """
+    piccolo_path = find_piccolo_executable()
     temp_config = config.copy()
     temp_config["database"] = db_name(cog_instance)
     diagnoses = await run_shell(
         cog_instance,
-        [*get_piccolo_command(), "--diagnose"],
+        [str(piccolo_path), "--diagnose"],
         False,
         temp_config,
     )
     check = await run_shell(
         cog_instance,
-        [*get_piccolo_command(), "migrations", "check"],
+        [str(piccolo_path), "migrations", "check"],
         False,
         temp_config,
     )

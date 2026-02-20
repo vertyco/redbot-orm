@@ -1,4 +1,5 @@
 import asyncio
+import importlib.util
 import inspect
 import os
 import subprocess
@@ -50,6 +51,21 @@ def find_piccolo_executable() -> Path:
         return default_path
 
     raise FileNotFoundError("Piccolo package not found!")
+
+
+def get_piccolo_command() -> list[str]:
+    """Get the command prefix used to execute Piccolo CLI commands.
+
+    First tries to find a piccolo executable, then falls back to running
+    piccolo as a Python module (which works when piccolo is installed via
+    Red's Downloader since PYTHONPATH is injected in get_env).
+    """
+    try:
+        return [str(find_piccolo_executable())]
+    except FileNotFoundError:
+        if importlib.util.find_spec("piccolo") is not None:
+            return [sys.executable, "-m", "piccolo.main"]
+        raise
 
 
 def get_env(

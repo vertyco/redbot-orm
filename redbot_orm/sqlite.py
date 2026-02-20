@@ -7,7 +7,7 @@ from piccolo.engine.sqlite import SQLiteEngine
 from piccolo.table import Table
 from redbot.core.data_manager import cog_data_path
 
-from .common import find_piccolo_executable, get_root, is_unc_path, run_shell
+from .common import get_piccolo_command, get_root, is_unc_path, run_shell
 from .errors import DirectoryError, UNCPathError
 
 log = logging.getLogger("red.orm.sqlite")
@@ -107,7 +107,7 @@ async def run_migrations(
         str: The result of the migration process, including any output messages.
     """
     commands = [
-        str(find_piccolo_executable()),
+        *get_piccolo_command(),
         "migrations",
         "forwards",
         get_root(cog_instance).stem,
@@ -133,7 +133,7 @@ async def reverse_migration(
         str: The result of the migration process, including any output messages.
     """
     commands = [
-        str(find_piccolo_executable()),
+        *get_piccolo_command(),
         "migrations",
         "backwards",
         get_root(cog_instance).stem,
@@ -164,7 +164,7 @@ async def create_migrations(
         str: The result of the migration process, including any output messages.
     """
     commands = [
-        str(find_piccolo_executable()),
+        *get_piccolo_command(),
         "migrations",
         "new",
         get_root(cog_instance).stem,
@@ -186,15 +186,14 @@ async def diagnose_issues(cog_instance: commands.Cog | Path) -> str:
     Returns:
         str: The result of the diagnosis process, including any output messages.
     """
-    piccolo_path = find_piccolo_executable()
     diagnoses = await run_shell(
         cog_instance,
-        [str(piccolo_path), "--diagnose"],
+        [*get_piccolo_command(), "--diagnose"],
         False,
     )
     check = await run_shell(
         cog_instance,
-        [str(piccolo_path), "migrations", "check"],
+        [*get_piccolo_command(), "migrations", "check"],
         False,
     )
     return f"{diagnoses}\n{check}"
